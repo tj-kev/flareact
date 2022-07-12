@@ -1,5 +1,5 @@
 import React from "react";
-import ReactDOMServer from "react-dom/server";
+import { renderToReadableStream, renderToString } from "react-dom/server";
 import { Helmet } from "react-helmet";
 import AppProvider from "../components/AppProvider";
 import { RouterProvider } from "../router";
@@ -13,7 +13,7 @@ export async function render({ page, props, context, event, buildManifest }) {
   const renderPage = (options) => {
     const EnhancedApp = options.enhanceApp ? options.enhanceApp(App) : App;
 
-    const html = ReactDOMServer.renderToString(
+    const html = renderToString(
       <RouterProvider
         initialUrl={event.request.url}
         initialPagePath={page.pagePath}
@@ -51,7 +51,7 @@ export async function render({ page, props, context, event, buildManifest }) {
     ...docProps,
   });
 
-  return "<!DOCTYPE html>" + ReactDOMServer.renderToString(html);
+  return renderToReadableStream(html);
 }
 
 function getFlattenedCurrentPage(page) {

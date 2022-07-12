@@ -1,5 +1,5 @@
 import React from "react";
-import ReactDOM from "react-dom";
+import { hydrateRoot } from 'react-dom/client';
 import PageLoader from "./page-loader";
 import { RouterProvider } from "../router";
 import AppProvider from "../components/AppProvider";
@@ -26,7 +26,8 @@ async function render() {
   const App = await pageLoader.loadPage("/_app");
   const Component = await pageLoader.loadPage(pagePath);
 
-  ReactDOM.hydrate(
+  hydrateRoot(
+    document.getElementById("__flareact"),
     <RouterProvider
       initialUrl={window.location.toString()}
       initialPagePath={pagePath}
@@ -38,8 +39,7 @@ async function render() {
         App={App}
         pageProps={initialData.props}
       />
-    </RouterProvider>,
-    document.getElementById("__flareact")
+    </RouterProvider>
   );
 }
 
