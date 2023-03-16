@@ -48,30 +48,49 @@ export function RouterProvider({
   useEffect(() => {
     // On initial page load, replace history state with format expected by router
     window.history.replaceState(route, null, route.asPath);
-  }, [])
+  }, []);
 
   useEffect(() => {
     async function loadNewPage() {
-      const { href, asPath, scroll } = route;
-      const pagePath = normalizePathname(href);
-      const normalizedAsPath = normalizePathname(asPath);
+      const { href, asPath, options } = route;
+      
+      if (!options?.shallow) {  
+        const pagePath = normalizePathname(href);
+        const normalizedAsPath = normalizePathname(asPath);
 
-      if ( !pageCache[normalizedAsPath] || hasPagePropsExpired(pageCache[normalizedAsPath].expiry)) {
-        const page = await pageLoader.loadPage(pagePath);
-        const { pageProps } = await pageLoader.loadPageProps(normalizedAsPath);
-        const revalidateSeconds = getRevalidateValue(pageProps);
-        const expiry = generatePagePropsExpiry(revalidateSeconds);
+        if (
+          !pageCache[normalizedAsPath] ||
+          hasPagePropsExpired(pageCache[normalizedAsPath].expiry)
+        ) {
+          const page = await pageLoader.loadPage(pagePath);
+          const { pageProps } = await pageLoader.loadPageProps(
+            normalizedAsPath
+          );
 
-        pageCache[normalizedAsPath] = {
-          expiry: expiry,
-          Component: page,
-          pageProps,
-        };
-      }
+          if (pageProps.redirect && pageProps.redirect.destination) {
+            if (pageProps.redirect.destination.startsWith("/")) {
+              router.push(pageProps.redirect.destination, pageProps.redirect.as);
+            } else {
+              window.location.href = pageProps.redirect.as;
+            }
 
-      setComponent(pageCache[normalizedAsPath]);
-      if (scroll) {
-        setTimeout(() => scrollToHash(asPath), 0);
+            return;
+          }
+          
+          const revalidateSeconds = getRevalidateValue(pageProps);
+          const expiry = generatePagePropsExpiry(revalidateSeconds);
+
+          pageCache[normalizedAsPath] = {
+            expiry: expiry,
+            Component: page,
+            pageProps,
+          };
+        }
+
+        setComponent(pageCache[normalizedAsPath]);
+        if (options && options.scroll) {
+          setTimeout(() => scrollToHash(asPath), 0);
+        }
       }
     }
 
@@ -110,29 +129,46 @@ export function RouterProvider({
     return pageProps.revalidate;
   }
 
-  function push(href, as, scroll) {
+  function push(href, as, options) {
     const asPath = as || href;
 
-    setRoute({
-      href,
-      asPath,
-      scroll
-    });
+    // If shallow routing = true but not possible then set to false
+    if (options && options.shallow && !isShallowRoutingPossible(asPath)) {
+      options.shallow = false;
+    }
 
     // Blank this out so any return trips to the original component re-fetches props.
     setInitialPath("");
 
+    setRoute({
+      href,
+      asPath,
+      options,
+    });
+
     window.history.pushState({ href, asPath }, null, asPath);
+  }
+
+  function isShallowRoutingPossible(asPath) {
+    const normalizedCurrentAsPath = normalizePathname(
+      route.asPath.split("?")[0]
+    );
+    const normalizedNewAsPath = normalizePathname(asPath.split("?")[0]);
+
+    return (
+      // If the route is already rendered on the screen.
+      normalizedCurrentAsPath === normalizedNewAsPath
+    );
   }
 
   // Navigate back in history
   function back() {
-    window.history.back()
+    window.history.back();
   }
 
   // Reload the current URL
   function reload() {
-    window.location.reload()
+    window.location.reload();
   }
 
   function prefetch(href, as, { priority } = {}) {
